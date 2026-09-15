@@ -25,19 +25,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract v0.2 project
+      - name: Find and extract v0.2 project
         run: |
-          unzip -o "Settlement-Survival-v0.2.zip" -d extracted
+          ZIP=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          echo "Found ZIP: $ZIP"
+          unzip -q "$ZIP" -d extracted
 
-          PROJECT_DIR=$(find extracted -name settings.gradle.kts -type f -print -quit | xargs dirname)
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle.kts not found"
-            exit 1
-          fi
-
+      - name: Find project folder
+        run: |
+          SETTINGS=$(find extracted -name "settings.gradle.kts" -type f | head -n 1)
+          PROJECT_DIR=$(dirname "$SETTINGS")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found project at: $PROJECT_DIR"
+          echo "Project found at: $PROJECT_DIR"
 
       - name: Build APK
         run: |
