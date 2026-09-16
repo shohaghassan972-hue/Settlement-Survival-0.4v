@@ -14,23 +14,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find and extract ZIP
+      - name: Find exact v0.4 ZIP
+        shell: bash
         run: |
-          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
+          set -e
+          ZIP_FILE=$(find . -maxdepth 3 -type f -name 'Settlement-Survival-Game-v0.4.zip' -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found."
+            echo "Exact v0.4 ZIP not found."
+            echo "ZIP files found:"
+            find . -maxdepth 3 -type f -iname '*.zip' -print
             exit 1
           fi
 
           echo "Using ZIP: $ZIP_FILE"
-
           mkdir -p build-project
           unzip -q "$ZIP_FILE" -d build-project
 
       - name: Find Android project
+        shell: bash
         run: |
-          PROJECT_DIR=$(find build-project -name settings.gradle.kts -o -name settings.gradle | head -n 1 | xargs dirname)
+          set -e
+          PROJECT_DIR=$(find build-project -type f \( -name settings.gradle.kts -o -name settings.gradle \) -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "Android Gradle project not found."
@@ -38,6 +43,16 @@ jobs:
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Using project: $PROJECT_DIR"
+
+      - name: Verify v0.4 project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -e
+          grep -q 'applicationId = "com.example.settlementsurvival"' app/build.gradle.kts
+          grep -q 'versionCode = 4' app/build.gradle.kts
+          grep -q 'versionName = "0.4"' app/build.gradle.kts
+          echo "v0.4 project verified."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -52,13 +67,15 @@ jobs:
 
       - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          gradle --no-daemon clean assembleDebug
+        run: gradle --no-daemon clean assembleDebug
 
       - name: Find APK
+        shell: bash
         run: |
+          set -e
           mkdir -p output
-          find "$PROJECT_DIR" -type f -name "*.apk" -exec cp {} output/ \;
+          find "$PROJECT_DIR" -type f -name '*.apk' -exec cp {} output/ \;
+          test -n "$(find output -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
